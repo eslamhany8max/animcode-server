@@ -6,8 +6,8 @@ cloudinary.config({
   api_secret: 'Z_rA0K16O4VlYI08D-vAun2m5_M'
 });
 
-export default async function handler(req, res) {
-  // تفعيل الـ CORS للسماح لبلوجر بالاتصال
+module.exports = async (req, res) => {
+  // إعدادات الوصول (CORS)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -20,31 +20,25 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { public_id, action, resource_type } = req.body;
-  
-  // التأكد من نوع الملف (صورة أو فيديو) لأن كلاوديناري تتطلب ذلك
-  const rType = resource_type || 'image';
-
   try {
+    const { public_id, action, resource_type } = req.body;
+    const type = resource_type || 'image';
+
     if (action === 'approve') {
-      // 1. إضافة تاغ approved
-      await cloudinary.uploader.add_tag('approved', [public_id], { resource_type: rType });
-      // 2. إزالة تاغ pending
-      await cloudinary.uploader.remove_tag('pending', [public_id], { resource_type: rType });
-      
-      return res.status(200).json({ success: true, message: 'Status updated to approved' });
+      // نقل الصورة من قائمة الانتظار للموافقة
+      await cloudinary.uploader.add_tag('approved', [public_id], { resource_type: type });
+      await cloudinary.uploader.remove_tag('pending', [public_id], { resource_type: type });
+      return res.status(200).json({ success: true, message: 'تمت الموافقة بنجاح' });
     } 
     
     if (action === 'delete') {
-      // حذف الملف نهائياً من السيرفر
-      const result = await cloudinary.uploader.destroy(public_id, { resource_type: rType });
-      return res.status(200).json({ success: true, message: 'Deleted successfully', result });
+      // حذف الصورة نهائياً
+      const result = await cloudinary.uploader.destroy(public_id, { resource_type: type });
+      return res.status(200).json({ success: true, message: 'تم الحذف نهائياً', result });
     }
 
-    return res.status(400).json({ error: 'Invalid action' });
-
+    res.status(400).json({ error: 'Action غير صالح' });
   } catch (error) {
-    console.error('Cloudinary Error:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
-}
+};
